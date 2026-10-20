@@ -5,7 +5,7 @@ const json = (statusCode, value) => ({ statusCode, headers: { 'content-type':'ap
 const required = (name) => { if(!process.env[name]) throw new Error(`Configuration manquante : ${name}`); return process.env[name]; };
 const hash = (value) => createHmac('sha256', required('LICENCE_SIGNING_SECRET')).update(value).digest('hex');
 const eq = (a,b) => { const aa=Buffer.from(a||''),bb=Buffer.from(b||''); return aa.length===bb.length && timingSafeEqual(aa,bb); };
-const store = () => getStore({ name: 'gants-licences', consistency: 'strong' });
+const store = () => getStore('gants-licences');;
 const key = () => 'GANTS-' + Array.from({length:4},()=>randomBytes(3).toString('hex').toUpperCase()).join('-');
 const days = (n) => new Date(Date.now()+n*86400000).toISOString();
 const bodyJson = (event) => { try {return JSON.parse(event.body||'{}');} catch {return {};} };
