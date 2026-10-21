@@ -5,7 +5,14 @@ const json = (statusCode, value) => ({ statusCode, headers: { 'content-type':'ap
 const required = (name) => { if(!process.env[name]) throw new Error(`Configuration manquante : ${name}`); return process.env[name]; };
 const hash = (value) => createHmac('sha256', required('LICENCE_SIGNING_SECRET')).update(value).digest('hex');
 const eq = (a,b) => { const aa=Buffer.from(a||''),bb=Buffer.from(b||''); return aa.length===bb.length && timingSafeEqual(aa,bb); };
-const store = () => getStore('gants-licences');;
+// Explicit credentials avoid MissingBlobsEnvironmentError when Netlify's
+// automatic Blobs context is not injected into the deployed Function.
+const store = () => getStore({
+  name: 'gants-licences',
+  siteID: required('BLOBS_SITE_ID'),
+  token: required('BLOBS_TOKEN'),
+  consistency: 'strong'
+});
 const key = () => 'GANTS-' + Array.from({length:4},()=>randomBytes(3).toString('hex').toUpperCase()).join('-');
 const days = (n) => new Date(Date.now()+n*86400000).toISOString();
 const bodyJson = (event) => { try {return JSON.parse(event.body||'{}');} catch {return {};} };
@@ -21,9 +28,9 @@ async function createLicense({name='',email='',duration=365,origin='admin',strip
 }
 export async function handler(event) {
  try {
-  const route=(event.path||'').replace(/^.*\/(?:api|api\/)/,'').replace(/^\//,'');
+  const route=(event.path||'').replace(/^.*\/api\/?/,'').replace(/^\//,'');
   const method=event.httpMethod||'GET';
-  if(route==='health') return json(200,{ok:true,configured:{admin:!!process.env.ADMIN_MASTER_KEY,licences:!!process.env.LICENCE_SIGNING_SECRET}});
+  if(route==='health') return json(200,{ok:true,configured:{admin:!!process.env.ADMIN_MASTER_KEY,licences:!!process.env.LICENCE_SIGNING_SECRET,blobs:!!process.env.BLOBS_SITE_ID&&!!process.env.BLOBS_TOKEN}});
   if(route==='verify' && method==='POST') {
     const token=String(bodyJson(event).licenseKey||'').trim().toUpperCase();
     if(!/^GANTS-(?:[A-F0-9]{6}-){3}[A-F0-9]{6}$/.test(token)) return json(403,{ok:false,error:'Clé invalide'});
